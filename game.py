@@ -1,6 +1,6 @@
 import pygame
 import random
-from math import sqrt
+from math import sqrt, atan2, degrees
 
 pygame.init()
 size = width, height = 900, 700
@@ -35,35 +35,6 @@ def rotatePivoted(im, angle, pivot):
     rect = image.get_rect()
     rect.center = pivot
     return image, rect
-
-
-def get_angle(x1, y1, x2, y2):
-    try:
-        tg = abs(abs(y1) - abs(y2)) / abs(abs(x1) - abs(x2))
-    except ZeroDivisionError:
-        return 90
-    if tg > 60:
-        return 90 
-    closest_angle = 0
-    for i in range(1, 90):
-        if abs(tgtable[closest_angle] - tg) > abs(tgtable[i] - tg):
-            closest_angle = i
-    return closest_angle
-
-
-def get_rotation(pos, angle):
-    angle = abs(angle % 90)
-##    print(angle, '!')
-    if pos[1] <= pl.rect.y + 19:
-        if pos[0] >= pl.rect.x + 17:
-            return angle
-        else:
-            return 180 - angle
-    else:
-        if pos[0] >= pl.rect.x + 17:
-            return -angle
-        else:
-            return 180 + angle
 
 
 class Player(pygame.sprite.Sprite):
@@ -125,7 +96,7 @@ running = True
 clock = pygame.time.Clock()
 pl = None
 mouse_pos = None
-mouse_angle = None
+angle = None
 cur_pl_xvel = 0
 cur_pl_yvel = 0
 ctrl = False
@@ -146,8 +117,6 @@ try:
                 running = False
             if event.type == pygame.MOUSEMOTION:
                 mouse_pos = event.pos
-                if pl is not None:
-                    mouse_angle = get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1 and not ctrl:
                     platform(ground, event.pos[0] - 100, event.pos[1] - 5)
@@ -187,13 +156,16 @@ try:
 
                     
         if pl is not None:
-            if mouse_pos is not None and mouse_angle is not None:
+            if mouse_pos is not None:
+##                angle = degrees(atan2(mouse_pos[1], mouse_pos[0]))
+##                print(angle)
                 pl.image.convert_alpha()
                 pygame.draw.rect(pl.image, pygame.Color("blue"),
                      (7, 0, 20, 36))
 ##                print(get_rotation(mouse_pos, get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])))
                 results = rotatePivoted(
-                    pl.gun, get_rotation(mouse_pos, mouse_angle), (17, 19))
+                    pl.gun, -degrees(atan2(mouse_pos[1] - pl.rect.y - 19, mouse_pos[0] - pl.rect.x - 17)), (17, 19))
+##                print(-degrees(atan2(mouse_pos[1] - pl.rect.y + 19, mouse_pos[0] - pl.rect.x + 17)))
                 pl.image.blit(results[0], results[1])
                 results = None
             
