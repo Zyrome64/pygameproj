@@ -1,6 +1,6 @@
 import pygame
 import random
-from math import sqrt, atan2, degrees
+from math import sqrt, atan2, atan, tan, radians, degrees
 
 pygame.init()
 size = width, height = 900, 700
@@ -10,23 +10,8 @@ players = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 background = pygame.sprite.Group()
 ground = pygame.sprite.Group()
-
-tgtable = {0: 0.0, 1: 0.0175, 2: 0.0349, 3: 0.0524, 4: 0.0699, 5: 0.0875, 6: 0.1051,
-           7: 0.1228, 8: 0.1405, 9: 0.1584, 10: 0.1763, 11: 0.1944, 12: 0.2126,
-           13: 0.2309, 14: 0.2493, 15: 0.2679, 16: 0.2867, 17: 0.3057, 18: 0.3249,
-           19: 0.3443, 20: 0.364, 21: 0.3839, 22: 0.404, 23: 0.4245, 24: 0.4452,
-           25: 0.4663, 26: 0.4877, 27: 0.5095, 28: 0.5317, 29: 0.5543, 30: 0.5774,
-           31: 0.6009, 32: 0.6249, 33: 0.6494, 34: 0.6745, 35: 0.7002, 36: 0.7265,
-           37: 0.7536, 38: 0.7813, 39: 0.8098, 40: 0.8391, 41: 0.8693, 42: 0.9004,
-           43: 0.9325, 44: 0.9657, 45: 1.0, 46: 1.0355, 47: 1.0724, 48: 1.1106,
-           49: 1.1504, 50: 1.1918, 51: 1.2349, 52: 1.2799, 53: 1.327, 54: 1.3764,
-           55: 1.4281, 56: 1.4826, 57: 1.5399, 58: 1.6003, 59: 1.6643, 60: 1.7321,
-           61: 1.804, 62: 1.8807, 63: 1.9626, 64: 2.0503, 65: 2.1445, 66: 2.246,
-           67: 2.3559, 68: 2.4751, 69: 2.6051, 70: 2.7475, 71: 2.9042, 72: 3.0777,
-           73: 3.2709, 74: 3.4874, 75: 3.7321, 76: 4.0108, 77: 4.3315, 78: 4.7046,
-           79: 5.1446, 80: 5.6713, 81: 6.3138, 82: 7.1154, 83: 8.1443, 84: 9.5144,
-           85: 11.4301, 86: 14.3007, 87: 19.0811, 88: 28.6363, 89: 57.29}
-
+projectiles = pygame.sprite.Group()
+explosions = pygame.sprite.Group()
 decorations = pygame.sprite.Group()
 
 
@@ -37,19 +22,32 @@ def rotatePivoted(im, angle, pivot):
     return image, rect
 
 
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self, group, x, y, radius):
+        super().__init__(group)
+        self.image = pygame.Surface((radius * 2, radius * 2))
+        self.image.set_colorkey((0, 0, 0))
+        pygame.draw.circle(self.image, (random.randrange(0, 255), random.randrange(0, 255), random.randrange(0, 255)), (radius, radius), radius)
+        self.rect = pygame.Rect(x, y, radius * 2,  radius * 2)
+        self.mask = pygame.mask.from_surface(self.image)
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, group, x, y):
         super().__init__(group)
         self.on_ground = False
-        self.image = pygame.Surface((36, 36),
-                                    pygame.SRCALPHA, 32)
+        self.xvel = 0
+        self.yvel = 0
+        self.direction = 0
+        self.image = pygame.Surface((34, 36))
+        self.image.set_colorkey((0, 0, 0))
         pygame.draw.rect(self.image, pygame.Color("blue"),
                          (7, 0, 20, 36))
         self.gun = pygame.Surface((28, 8),
                                   pygame.SRCALPHA, 32)
         pygame.draw.rect(self.gun, pygame.Color('red'),
                          (8, 0, 20, 8))
-        self.image.blit(self.gun, (14, 15))
+        self.image.blit(self.gun, (17, 15))
         self.rect = pygame.Rect(x, y, 20,  36)
         self.mask = pygame.mask.from_surface(self.image)
         
@@ -58,11 +56,19 @@ class Player(pygame.sprite.Sprite):
 
 
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self, group, x, y):
+    def __init__(self, group, x, y, rotation, velocity):
         super().__init__(group)
-##        self.on_ground = False
-##        self.image = pygame.Surface((36, 36),
-##                                    pygame.SRCALPHA, 32)
+        self.image = pygame.Surface((14, 8))
+        self.image.set_colorkey((0, 0, 0))
+        pygame.draw.polygon(self.image, pygame.Color('red'), ((0, 0), (14, 4), (0, 8)))
+        pygame.draw.polygon(self.image, (0, 0, 0), ((0, 0), (14, 4), (0, 8)), 1)
+        self.image = pygame.transform.rotate(self.image, rotation)
+        self.rect = pygame.Rect(x, y, 14, 8)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.velx = velocity[0]
+        self.vely = velocity[1]
+        pl.xvel -= velocity[0]
+        pl.yvel -= velocity[1]
 ##        pygame.draw.rect(self.image, pygame.Color("blue"),
 ##                         (7, 0, 20, 36))
 ##        self.gun = pygame.Surface((28, 8),
@@ -73,12 +79,12 @@ class Projectile(pygame.sprite.Sprite):
 ##        self.rect = pygame.Rect(x, y, 20,  36)
 ##        self.mask = pygame.mask.from_surface(self.image)
         
-    def move(self, xvelocity, yvelocity):
-        self.rect = self.rect.move(xvelocity, yvelocity)
+    def move(self):
+        self.rect = self.rect.move(self.velx, self.vely)
 
-
-class Missile(Projectile):
-    pass
+    def explode(self):
+        self.kill()
+        Explosion(explosions, self.rect.x - 30, self.rect.y - 30, 30)
 
 
 class Ground(pygame.sprite.Sprite):
@@ -97,8 +103,6 @@ clock = pygame.time.Clock()
 pl = None
 mouse_pos = None
 angle = None
-cur_pl_xvel = 0
-cur_pl_yvel = 0
 ctrl = False
 space = False
 
@@ -109,6 +113,7 @@ Ground(background, (900, 200), (50, 50, 50), 0, 0)
 floor = Ground(ground, (900, 150), (80, 80, 80), 0, 550)
 ceiling = Ground(ground, (900, 150), (80, 80, 80), 0, 0)
 
+
 try:
     while running:
         screen.fill((0, 0, 0))
@@ -118,37 +123,40 @@ try:
             if event.type == pygame.MOUSEMOTION:
                 mouse_pos = event.pos
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1 and not ctrl:
-                    platform(ground, event.pos[0] - 100, event.pos[1] - 5)
+                if event.button == 1 and pl is not None:
+                    ratio = 4 / sqrt((event.pos[1] - pl.rect.y - 19) ** 2 + (event.pos[0] - pl.rect.x - 17) ** 2)
+                    Projectile(projectiles, pl.rect.x + 17, pl.rect.y + 19,
+                               -degrees(atan2(event.pos[1] - pl.rect.y - 19, event.pos[0] - pl.rect.x - 17)),
+                               (ratio * (event.pos[0] - pl.rect.x - 17), ratio * (event.pos[1] - pl.rect.y - 19)))
 ##                elif event.button == 1 and ctrl:
 ##                    print(get_angle(pl.rect.x, pl.rect.y, event.pos[0], event.pos[1]))
 ##                    print(round(tg, 4), tg in tgtable.keys(), round(tg, 4) in tgtable.keys())
-                elif event.button == 3:
+                if event.button == 3:
                     if pl is not None:
                         players.remove(pl)
                     pl = Player(players, event.pos[0] - 15, event.pos[1] - 15)
             elif event.type == pygame.KEYDOWN:
                 if pl is not None and event.key == pygame.K_a:
-                    cur_pl_xvel = -3
+                    pl.direction = -3
                 elif pl is not None and event.key == pygame.K_d:
-                    cur_pl_xvel = 3
-                elif pl is not None and pygame.sprite.spritecollideany(pl, enemies) and event.key == pygame.K_w:
-                    cur_pl_yvel = -2
-                elif pl is not None and pygame.sprite.spritecollideany(pl, enemies) and event.key == pygame.K_s:
-                    cur_pl_yvel = 2 
+                    pl.direction = 3
+##                elif pl is not None and pygame.sprite.spritecollideany(pl, enemies) and event.key == pygame.K_w:
+##                    pl.yvel = -2
+##                elif pl is not None and pygame.sprite.spritecollideany(pl, enemies) and event.key == pygame.K_s:
+##                    pl.yvel = 2 
                 elif event.key == pygame.K_LCTRL:
                     ctrl = True
                 elif event.key == pygame.K_SPACE:
                     space = True                        
             elif event.type == pygame.KEYUP:
-                if pl is not None and cur_pl_xvel < 0 and event.key == pygame.K_a:
-                    cur_pl_xvel = 0
-                elif pl is not None and cur_pl_xvel > 0 and event.key == pygame.K_d:
-                    cur_pl_xvel = 0
+                if pl is not None and pl.direction < 0 and event.key == pygame.K_a:
+                    pl.direction = 0
+                elif pl is not None and pl.direction > 0 and event.key == pygame.K_d:
+                    pl.direction = 0
                 elif event.key == pygame.K_w:
-                    cur_pl_yvel = 0
+                    pl.yvel = 0
                 elif event.key == pygame.K_s:
-                    cur_pl_yvel = 0
+                    pl.yvel = 0
                 elif event.key == pygame.K_SPACE:
                     space = False
                 elif event.key == pygame.K_LCTRL:
@@ -159,7 +167,7 @@ try:
             if mouse_pos is not None:
 ##                angle = degrees(atan2(mouse_pos[1], mouse_pos[0]))
 ##                print(angle)
-                pl.image.convert_alpha()
+                pl.image.fill((0, 0, 0))
                 pygame.draw.rect(pl.image, pygame.Color("blue"),
                      (7, 0, 20, 36))
 ##                print(get_rotation(mouse_pos, get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])))
@@ -171,13 +179,13 @@ try:
             
             if space and pl.on_ground:
                 pl.on_ground = False
-                cur_pl_yvel = -4
+                pl.yvel = -4
 
-            if pl.on_ground and cur_pl_yvel >= 0:
-                pl.move(cur_pl_xvel, 0)
+            if pl.on_ground and pl.yvel >= 0:
+                pl.move(pl.xvel + pl.direction, 0)
                 
             else:
-                pl.move(0, cur_pl_yvel)
+                pl.move(0, pl.yvel)
                 if pygame.sprite.collide_mask(pl, ceiling):
                     pl.move(0, 155 - pl.rect.y)
                     cur_pl_y_vel = 1
@@ -187,16 +195,26 @@ try:
                     pl.move(0, 550 - 36 - pl.rect.y)
                     
                 else:
-                    pl.move(cur_pl_xvel, round(cur_pl_yvel))
-            if cur_pl_yvel + 0.1 <= 4:
-                cur_pl_yvel += 0.1
+                    pl.move(pl.xvel + pl.direction, pl.yvel)
+            if pl.yvel + 0.1 <= 4:
+                pl.yvel += 0.1
             else:
-                cur_pl_yvel = 4
+                pl.yvel = 4
+            if pl.xvel >= 0.1:
+                pl.xvel -= 0.1
+            elif pl.xvel <= -0.1:
+                pl.xvel += 0.1
 ##        for sprite in players:
 ##            sprite.update()
         background.draw(screen)
         ground.draw(screen)
         enemies.draw(screen)
+        for projectile in projectiles:
+            projectile.move()
+            if pygame.sprite.spritecollideany(projectile, ground):
+                projectile.explode()
+        explosions.draw(screen)
+        projectiles.draw(screen)
         players.draw(screen)
         pygame.display.flip()
         clock.tick(fps)
