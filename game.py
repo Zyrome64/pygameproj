@@ -13,6 +13,7 @@ ground = pygame.sprite.Group()
 projectiles = pygame.sprite.Group()
 explosions = pygame.sprite.Group()
 decorations = pygame.sprite.Group()
+foreground = pygame.sprite.Group()
 
 
 def rng(chance):
@@ -102,9 +103,9 @@ class Projectile(pygame.sprite.Sprite):
         self.velx = velocity[0] * 2.5
         self.vely = velocity[1] * 2.5
         if friendly:
-            pl.cooldown = 35
-            pl.xvel -= velocity[0] * 1.5
-            pl.yvel -= velocity[1] * 1.5
+            pl.cooldown = 32
+            pl.xvel -= velocity[0] * 1.7
+            pl.yvel -= velocity[1] * 1.1
             if pl.yvel <= 0 and pl.on_ground:
                 pl.on_ground = False
         
@@ -128,8 +129,9 @@ class Ground(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, size[0], size[1])
         self.mask = pygame.mask.from_surface(self.image)
 
+
 class Stalactite(pygame.sprite.Sprite):
-    def __init__(self, group, x, y, length, color, multiplier, upside_down):
+    def __init__(self, group, x, y, length, color, multiplier, upside_down, outline_color=None):
         super().__init__(group)
         self.length = length
         self.cooldown = 0
@@ -139,16 +141,26 @@ class Stalactite(pygame.sprite.Sprite):
         else:
             self.multiplier = multiplier
             self.max_cooldown = 0
-        self.height = random.randint(length // 2, length)
+        self.height = random.randint(length // 1.5, round(length * 1.5))
         self.image = pygame.Surface((length, height))
         self.image.set_colorkey((0, 0, 0))
         if not upside_down:
             pygame.draw.polygon(self.image, color, ((0, 0), (length // 2, self.height), (length, 0)))
+            if outline_color is not None:
+                pygame.draw.polygon(self.image, outline_color, ((0, 0), (length // 2, self.height), (length, 0)), 1)
         else:
             pygame.draw.polygon(self.image, color, ((0, self.height), (length // 2, 0), (length, self.height)))
+            if outline_color is not None:
+                pygame.draw.polygon(self.image, outline_color, ((0, self.height), (length // 2, 0), (length, self.height)), 1)
+
 ##        pygame.draw.rect(self.image, color,
 ##                           (0, 0, size[0], size[1]))
-        self.rect = pygame.Rect(x, y, length, self.height)
+        
+            
+        if upside_down:
+            self.rect = pygame.Rect(x, y - self.height, length, self.height)
+        else:
+            self.rect = pygame.Rect(x, y, length, self.height)
         self.mask = pygame.mask.from_surface(self.image)
         
     def move(self, xvelocity):
@@ -162,6 +174,8 @@ class Stalactite(pygame.sprite.Sprite):
             self.cooldown = self.max_cooldown
         else:
             self.cooldown -= 1
+
+            
 running = True
 clock = pygame.time.Clock()
 pl = None
@@ -172,23 +186,22 @@ space = False
 speed = 1
 
 
-Ground(background, (900, 200), (50, 50, 50), 0, 500)
-Ground(background, (900, 200), (50, 50, 50), 0, 0)
+Ground(background, (900, 150), (50, 50, 50), 0, 550)
+Ground(background, (900, 150), (50, 50, 50), 0, 0)
 
 
-floor = Ground(ground, (900, 150), (80, 80, 80), 0, 550)
-ceiling = Ground(ground, (900, 150), (80, 80, 80), 0, 0)
+floor = Ground(ground, (900, 110), (80, 80, 80), 0, 590)
+ceiling = Ground(ground, (900, 110), (80, 80, 80), 0, 0)
 
-lastfbs = None # last front bottom stalactite
 lastbbs = None # last back bottom stalactite
-lastfts = None # last front top stalactite
 lastbts = None # last back top stalactite
+lastfs = None # last front stalactite
 
 # cooldowns until a new stalactite can be created
-fbscd = 0
+
 bbscd = 0
-ftscd = 0
 btscd = 0
+fscd = 0
 
 ##Stalactite(decorations, width, 200, 40, 50, (50, 50, 50), 1, False)
 
@@ -242,25 +255,80 @@ try:
 
                     
         if pl is not None:
-            if lastbts is not None and width - lastbts.rect.x > 15 and rng(3):
-                stwidth = random.randint(15, width - lastbts.rect.x) \
-                          if width - lastbts.rect.x < 80 \
-                          else random.randint(15, 80)
-                lastbts = Stalactite(decorations,
-                                     width - stwidth + 16,
-                                     200,
-                                     stwidth,
-                                     (50, 50, 50),
-                                     0.5,
-                                     False)
-            elif lastbts is None and rng(6):
-                lastbts = Stalactite(decorations,
-                                     width,
-                                     200,
-                                     random.randint(15, 45),
-                                     (50, 50, 50),
-                                     0.5,
-                                     False)
+            if btscd == 0:
+                if rng(50):
+                    if lastbts is not None and lastbts.rect.x + lastbts.length < width + 10:
+                        stwidth = random.randint(35, width - lastbts.rect.x + lastbts.length) \
+                                  if width - lastbts.rect.x < 80 \
+                                  else random.randint(35, 80)
+                        lastbts = Stalactite(decorations,
+                                             width + 16,
+                                             150,
+                                             stwidth,
+                                             (50, 50, 50),
+                                             0.5,
+                                             False)
+                    elif lastbts is None:
+                        lastbts = Stalactite(decorations,
+                                             width,
+                                             150,
+                                             random.randint(15, 45),
+                                             (50, 50, 50),
+                                             0.5,
+                                             False)
+                btscd = 60
+            else:
+                btscd -= 1
+
+            if bbscd == 0:
+                if rng(50):
+                    if lastbbs is not None and lastbbs.rect.x + lastbbs.length < width + 10:
+                        stwidth = random.randint(35, width - lastbbs.rect.x + lastbbs.length) \
+                                  if width - lastbbs.rect.x < 80 \
+                                  else random.randint(35, 80)
+                        lastbbs = Stalactite(decorations,
+                                             width + 16,
+                                             550,
+                                             stwidth,
+                                             (50, 50, 50),
+                                             0.5,
+                                             True)
+                    elif lastbbs is None:
+                        lastbbs = Stalactite(decorations,
+                                             width,
+                                             550,
+                                             random.randint(15, 45),
+                                             (50, 50, 50),
+                                             0.5,
+                                             True)
+                bbscd = 60
+            else:
+                bbscd -= 1
+            if lastfs not in foreground:
+                if fscd == 0:
+                    if rng(10):
+                        if random.randint(0, 1):
+                            lastfs = Stalactite(foreground,
+                                                width + 16,
+                                                0,
+                                                random.randint(200, 400),
+                                                (1, 1, 1),
+                                                2,
+                                                False,
+                                                (40, 40, 40))
+                        else:
+                            lastfs = Stalactite(foreground,
+                                                width + 16,
+                                                height,
+                                                random.randint(200, 400),
+                                                (1, 1, 1),
+                                                2,
+                                                True,
+                                                (40, 40, 40))
+                    fscd = 60
+                else:
+                    fscd -= 1
+            
             if pl.cooldown > 0:
                 pl.cooldown -= 1
             if mouse_pos is not None:
@@ -277,6 +345,7 @@ try:
                 results = None
             
             if space and pl.on_ground:
+                pl.on_ground = False
                 pl.yvel = -4
 
 ##            if pl.on_ground and pl.yvel >= 0:
@@ -286,12 +355,12 @@ try:
             else:
                 pl.move(0, pl.yvel)
                 if pygame.sprite.collide_mask(pl, ceiling):
-                    pl.move(0, 155 - pl.rect.y)
+                    pl.move(0, ceiling.rect.bottom - pl.rect.top)
                     pl.yvel = 0
                     
                 elif pygame.sprite.collide_mask(pl, floor):
                     pl.on_ground = True
-                    pl.move(0, 550 - 36 - pl.rect.y)
+                    pl.move(0, floor.rect.top - pl.rect.bottom)
                     
                 else:
                     pl.move(0, pl.yvel)
@@ -305,11 +374,14 @@ try:
 
             elif pl.rect.x + 27 > width:
                 pl.rect.x = width - 27
-                
-            if pl.yvel + 0.15 <= 4:
-                pl.yvel += 0.15
+
+            if not pl.on_ground:
+                if pl.yvel + 0.15 <= 4:
+                    pl.yvel += 0.15
+                else:
+                    pl.yvel = 4
             else:
-                pl.yvel = 4
+                pl.yvel = 1
                 
             if pl.xvel >= 0.1:
                 pl.xvel -= 0.1
@@ -340,6 +412,8 @@ try:
         explosions.update()
         projectiles.draw(screen)
         players.draw(screen)
+        foreground.draw(screen)
+        foreground.update()
         pygame.display.flip()
         clock.tick(fps)
         
