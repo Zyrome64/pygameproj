@@ -10,6 +10,7 @@ players = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 background = pygame.sprite.Group()
 ground = pygame.sprite.Group()
+platforms = pygame.sprite.Group()
 projectiles = pygame.sprite.Group()
 explosions = pygame.sprite.Group()
 decorations = pygame.sprite.Group()
@@ -103,9 +104,9 @@ class Projectile(pygame.sprite.Sprite):
         self.velx = velocity[0] * 2.5
         self.vely = velocity[1] * 2.5
         if friendly:
-            pl.cooldown = 32
+            pl.cooldown = 30
             pl.xvel -= velocity[0] * 1.7
-            pl.yvel -= velocity[1] * 1.1
+            pl.yvel -= velocity[1] * 1.8
             if pl.yvel <= 0 and pl.on_ground:
                 pl.on_ground = False
         
@@ -122,6 +123,7 @@ class Projectile(pygame.sprite.Sprite):
 class Ground(pygame.sprite.Sprite):
     def __init__(self, group, size, color, x, y):
         super().__init__(group)
+        self.below_player = False
         self.image = pygame.Surface(size,
                                     pygame.SRCALPHA, 32)
         pygame.draw.rect(self.image, color,
@@ -129,6 +131,14 @@ class Ground(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, size[0], size[1])
         self.mask = pygame.mask.from_surface(self.image)
 
+    def update(self):
+        self.rect = self.rect.move(-speed, 0)
+        if pl.rect.bottom <= self.rect.top:
+            self.below_player = True
+        else:
+            self.below_player = False
+        if self.rect.right < 0:
+            self.kill()
 
 class Stalactite(pygame.sprite.Sprite):
     def __init__(self, group, x, y, length, color, multiplier, upside_down, outline_color=None):
@@ -161,7 +171,6 @@ class Stalactite(pygame.sprite.Sprite):
             self.rect = pygame.Rect(x, y - self.height, length, self.height)
         else:
             self.rect = pygame.Rect(x, y, length, self.height)
-        self.mask = pygame.mask.from_surface(self.image)
         
     def move(self, xvelocity):
         self.rect = self.rect.move(xvelocity, 0)
@@ -169,7 +178,7 @@ class Stalactite(pygame.sprite.Sprite):
     def update(self):
         if self.cooldown == 0:
             self.move(-speed * self.multiplier)
-            if self.rect.x + self.length < 0:
+            if self.rect.right < 0:
                 self.kill()
             self.cooldown = self.max_cooldown
         else:
@@ -202,7 +211,7 @@ lastfs = None # last front stalactite
 bbscd = 0
 btscd = 0
 fscd = 0
-
+platform_cooldown = 0
 ##Stalactite(decorations, width, 200, 40, 50, (50, 50, 50), 1, False)
 
 try:
@@ -304,6 +313,7 @@ try:
                 bbscd = 60
             else:
                 bbscd -= 1
+                
             if lastfs not in foreground:
                 if fscd == 0:
                     if rng(10):
@@ -328,7 +338,14 @@ try:
                     fscd = 60
                 else:
                     fscd -= 1
-            
+
+            if platform_cooldown == 0:
+                if rng(75):
+                    Ground(platforms, (125, 15), (80, 80, 80), width, random.randint(ceiling.rect.bottom + 125, floor.rect.top - 125))
+                platform_cooldown = 360
+            else:
+                platform_cooldown -= 1
+                
             if pl.cooldown > 0:
                 pl.cooldown -= 1
             if mouse_pos is not None:
@@ -346,7 +363,7 @@ try:
             
             if space and pl.on_ground:
                 pl.on_ground = False
-                pl.yvel = -4
+                pl.yvel = -8
 
 ##            if pl.on_ground and pl.yvel >= 0:
                 
@@ -354,16 +371,23 @@ try:
 
             else:
                 pl.move(0, pl.yvel)
-                if pygame.sprite.collide_mask(pl, ceiling):
-                    pl.move(0, ceiling.rect.bottom - pl.rect.top)
-                    pl.yvel = 0
-                    
-                elif pygame.sprite.collide_mask(pl, floor):
-                    pl.on_ground = True
-                    pl.move(0, floor.rect.top - pl.rect.bottom)
-                    
+                for pf in platforms:
+                    if pygame.sprite.collide_mask(pl, pf) and pf.below_player and pl.yvel >= 0:
+                        pl.on_ground = True
+                        pl.move(0, pf.rect.top - pl.rect.bottom)
+                        break
                 else:
-                    pl.move(0, pl.yvel)
+                    if pygame.sprite.collide_mask(pl, ceiling):
+                        pl.move(0, ceiling.rect.bottom - pl.rect.top)
+                        pl.yvel = 0
+                        
+                    elif pygame.sprite.collide_mask(pl, floor):
+                        pl.on_ground = True
+                        pl.move(0, floor.rect.top - pl.rect.bottom)
+                        
+                    else:
+                        pl.on_ground = False
+##                        pl.move(0, pl.yvel)
 
             if pl.on_ground:
                 pl.move(-speed, 0)
@@ -376,10 +400,10 @@ try:
                 pl.rect.x = width - 27
 
             if not pl.on_ground:
-                if pl.yvel + 0.15 <= 4:
-                    pl.yvel += 0.15
+                if pl.yvel + 0.3 <= 8:
+                    pl.yvel += 0.3
                 else:
-                    pl.yvel = 4
+                    pl.yvel = 8
             else:
                 pl.yvel = 1
                 
@@ -392,14 +416,17 @@ try:
 ##            print(pl.direction, pl.xvel, pl.yvel)
 ##        for sprite in players:
 ##            sprite.update()
+
         background.draw(screen)
         decorations.draw(screen)
         decorations.update()
         ground.draw(screen)
+        platforms.draw(screen)
+        platforms.update()
         enemies.draw(screen)
         for projectile in projectiles:
             projectile.move()
-            if pygame.sprite.spritecollideany(projectile, ground):
+            if pygame.sprite.spritecollideany(projectile, ground) or pygame.sprite.spritecollideany(projectile, platforms):
                 projectile.explode()
                 
             if projectile.rect.x < -10:
