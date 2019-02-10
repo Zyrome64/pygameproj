@@ -12,7 +12,9 @@ background = pygame.sprite.Group()
 ground = pygame.sprite.Group()
 platforms = pygame.sprite.Group()
 projectiles = pygame.sprite.Group()
+enemy_projectiles = pygame.sprite.Group()
 explosions = pygame.sprite.Group()
+enemy_explosions = pygame.sprite.Group()
 decorations = pygame.sprite.Group()
 foreground = pygame.sprite.Group()
 
@@ -39,32 +41,69 @@ class Explosion(pygame.sprite.Sprite):
         self.radius = radius
         self.image = pygame.Surface((radius * 2, radius * 2))
         self.image.set_colorkey((0, 0, 0))
-        pygame.draw.circle(self.image, (255, 255, 0), (radius, radius), int(radius / 1.5))
-        self.rect = pygame.Rect(x, y, radius * 2,  radius * 2)
+        self.rect = pygame.Rect(x - radius, y - radius, radius * 2,  radius * 2)
         self.mask = pygame.mask.from_surface(self.image)
 
+    def draw_yellow(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, (255, 255, 0), (self.radius, self.radius), int(self.radius / 3))
+
+    def draw_orange(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, (255, 255, 0), (self.radius, self.radius), int(self.radius / 3))
+        pygame.draw.circle(self.image, (255, 165, 0), (self.radius, self.radius), int(self.radius // 3 * 2), int(self.radius // 3))
+
+    def draw_red(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, (255, 255, 0), (self.radius, self.radius), int(self.radius / 3))
+        pygame.draw.circle(self.image, (255, 165, 0), (self.radius, self.radius), int(self.radius // 3 * 2), int(self.radius // 3))
+        pygame.draw.circle(self.image, (255, 0, 0), (self.radius, self.radius), int(self.radius), int(self.radius // 3))
+        
     def update(self):
-        if self.stage == 5:
-            pygame.draw.circle(self.image, (255, 165, 0), (self.radius, self.radius), int(self.radius // 3 * 2), int(self.radius // 3))
-            self.stage += 1
+        if self.stage == 0:
+            self.draw_yellow()
+        elif self.stage == 5:
+            self.draw_orange()
         elif self.stage == 10:
-            pygame.draw.circle(self.image, (255, 0, 0), (self.radius, self.radius), int(self.radius), int(self.radius // 3))
-            self.stage += 1
+            self.draw_red()
         elif self.stage == 15:
-            self.image.fill((0, 0, 0))
-            pygame.draw.circle(self.image, (255, 255, 0), (self.radius, self.radius), int(self.radius // 3))
-            pygame.draw.circle(self.image, (255, 165, 0), (self.radius, self.radius), int(self.radius // 3 * 2), int(self.radius // 3))
-            self.stage += 1
+            self.draw_orange()
         elif self.stage == 20:
-            self.image.fill((0, 0, 0))
-            pygame.draw.circle(self.image, (255, 255, 0), (self.radius, self.radius), int(self.radius // 3))
-            self.stage += 1
+            self.draw_yellow()
         elif self.stage == 25:
             self.kill()
-        else:
-            self.stage += 1
+        self.stage += 1
+        for enemy in enemies:
+            if pygame.sprite.collide_circle(self, enemy):
+                enemy.kill()
 
-            
+
+class Enemy_explosion(pygame.sprite.Sprite):
+    def __init__(self, group, x, y, color, radius, blinks):
+        super().__init__(group)
+        self.max_radius = radius + 5
+        self.radius = 2
+        self.color = color
+        self.blinks = blinks
+        self.image = pygame.Surface((self.max_radius * 2, self.max_radius * 2))
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = pygame.Rect(x - radius, y - radius, self.max_radius * 2,  self.max_radius * 2)
+        self.mask = pygame.mask.from_surface(self.image)
+        
+    def update(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, (self.rect.width // 2, self.rect.height // 2), self.radius, 2)
+        self.radius += 1
+        if self.radius == self.max_radius:
+            self.radius = 2
+            self.blinks -= 1
+            if self.blinks == 0:
+                self.kill()
+##        self.mask = pygame.mask.from_surface(self.image)
+####        print(self.mask.)
+        if pygame.sprite.collide_circle(self, pl):
+            pl.kill()
+        
 class Player(pygame.sprite.Sprite):
     def __init__(self, group, x, y):
         super().__init__(group)
@@ -89,35 +128,126 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.rect.move(xvelocity, yvelocity)
 
 
-class Projectile(pygame.sprite.Sprite):
-    def __init__(self, group, x, y, rotation, velocity, friendly):
+class Gunner(pygame.sprite.Sprite):
+    def __init__(self, group, x, y, initial_cooldown, ccd, fire_delay, max_rockets, color):
         super().__init__(group)
+        self.active = False
+        self.color = color
+        self.initial_cooldown = initial_cooldown
+        self.const_cooldown = ccd
+        self.cooldown = initial_cooldown // 4
+        self.fire_delay = fire_delay
+        self.release_cooldown = 0
+        self.max_rockets = max_rockets
+        self.rockets = 0
+        self.image = pygame.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        pygame.draw.circle(self.image, color, (20, 20), 14)
+        pygame.draw.circle(self.image, (0, 0, 0), (20, 20), 16, 2)
+        self.gun = pygame.Surface((40, 8), pygame.SRCALPHA, 32)
+        pygame.draw.rect(self.gun, color, (1, 0, 14, 8))
+        pygame.draw.rect(self.gun, (0, 0, 0), (1, 0, 14, 8), 1)
+        self.image.blit(self.gun, (0, 16))
+        self.image.set_alpha(127)
+        self.rect = pygame.Rect(x, y, 40, 40)
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, (20, 20), 14)
+        pygame.draw.circle(self.image, (0, 0, 0), (20, 20), 16, 2)
+##                print(get_rotation(mouse_pos, get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])))
+        results = rotatePivoted(self.gun, 180 - degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)), (self.rect.width // 2, self.rect.height // 2))
+##                print(-degrees(atan2(mouse_pos[1] - pl.rect.y + 19, mouse_pos[0] - pl.rect.x + 17)))
+        self.image.blit(results[0], results[1])
+        results = None
+        if self.active:
+            if self.cooldown == 0:
+                self.rockets = self.max_rockets # 3
+                self.release_cooldown = 0
+                self.cooldown = self.const_cooldown # 240
+            else:
+                self.cooldown -= 1
+            if self.rockets:
+                if self.release_cooldown == 0:
+    ##                print(self.rect.centery, self.rect.y + 20, self.rect.y - 20)
+                    ratio = 4 / sqrt((pl.rect.centery - self.rect.centery) ** 2 + (pl.rect.centerx - self.rect.centerx) ** 2)
+                    Projectile(enemy_projectiles, self.rect.centerx, self.rect.centery,
+                               -degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)),
+                               (ratio * (pl.rect.centerx - self.rect.centerx), ratio * (pl.rect.centery - self.rect.centery)),
+                               self.color)
+                    self.rockets -= 1
+                    self.release_cooldown = self.fire_delay # 25
+                else:
+                    self.release_cooldown -= 1
+            if pygame.sprite.collide_mask(pl, self):
+                pl.kill()
+        else:
+            if self.initial_cooldown == 0:
+                self.image.set_alpha(255)
+                self.active = True
+            else:
+                self.initial_cooldown -= 1
+       
+
+class Projectile(pygame.sprite.Sprite):
+    def __init__(self, group, x, y, rotation, velocity, color):
+        super().__init__(group)
+        self.friendly = self in projectiles
+        self.color = color
         self.xremainder = 0
         self.yremainder = 0
         self.image = pygame.Surface((14, 8))
         self.image.set_colorkey((0, 0, 0))
-        pygame.draw.polygon(self.image, pygame.Color('red'), ((0, 0), (14, 4), (0, 8)))
+        pygame.draw.polygon(self.image, color, ((0, 0), (14, 4), (0, 8)))
         pygame.draw.polygon(self.image, (0, 0, 0), ((0, 0), (14, 4), (0, 8)), 1)
         self.image = pygame.transform.rotate(self.image, rotation)
         self.rect = pygame.Rect(x, y, 14, 8)
         self.mask = pygame.mask.from_surface(self.image)
-        self.velx = velocity[0] * 2.5
-        self.vely = velocity[1] * 2.5
-        if friendly:
+        self.velx = velocity[0]
+        self.vely = velocity[1]
+        if self.friendly:
+            self.velx *= 2.5
+            self.vely *= 2.5
             pl.cooldown = 30
             pl.xvel -= velocity[0] * 1.7
             pl.yvel -= velocity[1] * 1.8
             if pl.yvel <= 0 and pl.on_ground:
                 pl.on_ground = False
-        
+        else:
+            self.velx /= 2
+            self.vely /= 2
     def move(self):
         self.rect = self.rect.move(self.velx + self.xremainder, self.vely + self.yremainder)
         self.xremainder = self.velx + self.xremainder - int(self.velx + self.xremainder)
         self.yremainder = self.vely + self.yremainder - int(self.vely + self.yremainder)
 
     def explode(self):
+        if self.friendly:
+            Explosion(explosions, self.rect.x, self.rect.y, 30)
+        else:
+            Enemy_explosion(explosions, self.rect.x, self.rect.y, self.color, 16, 3)
         self.kill()
-        Explosion(explosions, self.rect.x - 30, self.rect.y - 30, 30)
+
+    def update(self):
+        self.move()
+        if self.friendly:
+            for enemy in enemies:
+                if pygame.sprite.collide_mask(self, enemy):
+                    self.explode()
+                    break
+            else:
+                if pygame.sprite.spritecollideany(self, ground) or pygame.sprite.spritecollideany(self, platforms):
+                    self.explode()
+        else:
+            if pygame.sprite.spritecollideany(self, ground) or pygame.sprite.spritecollideany(self, platforms) or pygame.sprite.collide_mask(self, pl):
+                self.explode()
+            
+        if self.rect.x < -10:
+            self.kill()
+
+        if self.rect.x > width + 10:
+            self.kill()
 
 
 class Ground(pygame.sprite.Sprite):
@@ -206,14 +336,15 @@ lastbbs = None # last back bottom stalactite
 lastbts = None # last back top stalactite
 lastfs = None # last front stalactite
 
-# cooldowns until a new stalactite can be created
+# cooldowns until something can spawn
 
 bbscd = 0
 btscd = 0
-fscd = 0
-platform_cooldown = 0
-##Stalactite(decorations, width, 200, 40, 50, (50, 50, 50), 1, False)
+fscd = 360
 
+platform_cooldown = 360
+enemy_cooldown = 360
+##Stalactite(decorations, width, 200, 40, 50, (50, 50, 50), 1, False)
 try:
     while running:
         screen.fill((0, 0, 0))
@@ -227,7 +358,8 @@ try:
                     ratio = 4 / sqrt((event.pos[1] - pl.rect.y - 19) ** 2 + (event.pos[0] - pl.rect.x - 17) ** 2)
                     Projectile(projectiles, pl.rect.x + 17, pl.rect.y + 19,
                                -degrees(atan2(event.pos[1] - pl.rect.y - 19, event.pos[0] - pl.rect.x - 17)),
-                               (ratio * (event.pos[0] - pl.rect.x - 17), ratio * (event.pos[1] - pl.rect.y - 19)), True)
+                               (ratio * (event.pos[0] - pl.rect.x - 17), ratio * (event.pos[1] - pl.rect.y - 19)),
+                               pygame.Color('red'))
 ##                elif event.button == 1 and ctrl:
 ##                    print(get_angle(pl.rect.x, pl.rect.y, event.pos[0], event.pos[1]))
 ##                    print(round(tg, 4), tg in tgtable.keys(), round(tg, 4) in tgtable.keys())
@@ -345,6 +477,16 @@ try:
                 platform_cooldown = 360
             else:
                 platform_cooldown -= 1
+
+            if enemy_cooldown == 0:
+                if rng(80):
+                    if rng(85):
+                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 240, 25, 3, pygame.Color('green'))
+                    else:
+                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 180, 20, 6, pygame.Color('purple'))
+                enemy_cooldown = 240
+            else:
+                enemy_cooldown -= 1
                 
             if pl.cooldown > 0:
                 pl.cooldown -= 1
@@ -413,6 +555,27 @@ try:
                 pl.xvel += 0.1
             else:
                 pl.xvel = 0
+##        for projectile in projectiles:
+##            projectile.move()
+##            if pygame.sprite.spritecollideany(projectile, ground) or pygame.sprite.spritecollideany(projectile, platforms) :
+##                projectile.explode()
+##                
+##            if projectile.rect.x < -10:
+##                projectile.kill()
+##
+##            if projectile.rect.x > width + 10:
+##                projectile.kill()
+####################
+##        for projectile in enemy_projectiles:
+##            projectile.move()
+##            if pygame.sprite.spritecollideany(projectile, ground) or pygame.sprite.spritecollideany(projectile, platforms):
+##                projectile.explode()
+##                
+##            if projectile.rect.x < -10:
+##                projectile.kill()
+##
+##            if projectile.rect.x > width + 10:
+##                projectile.kill()
 ##            print(pl.direction, pl.xvel, pl.yvel)
 ##        for sprite in players:
 ##            sprite.update()
@@ -422,22 +585,17 @@ try:
         decorations.update()
         ground.draw(screen)
         platforms.draw(screen)
-        platforms.update()
-        enemies.draw(screen)
-        for projectile in projectiles:
-            projectile.move()
-            if pygame.sprite.spritecollideany(projectile, ground) or pygame.sprite.spritecollideany(projectile, platforms):
-                projectile.explode()
-                
-            if projectile.rect.x < -10:
-                projectile.kill()
-
-            if projectile.rect.x > width + 10:
-                projectile.kill()
-                
+        platforms.update()      
         explosions.draw(screen)
         explosions.update()
+        enemy_explosions.draw(screen)
+        enemy_explosions.update()
+        enemy_projectiles.draw(screen)
+        enemy_projectiles.update()
         projectiles.draw(screen)
+        projectiles.update()
+        enemies.draw(screen)
+        enemies.update()
         players.draw(screen)
         foreground.draw(screen)
         foreground.update()
