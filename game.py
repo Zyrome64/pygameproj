@@ -74,17 +74,17 @@ class Explosion(pygame.sprite.Sprite):
             self.kill()
         self.stage += 1
         for enemy in enemies:
-            if pygame.sprite.collide_circle(self, enemy):
+            if pygame.sprite.collide_circle(self, enemy) and enemy.active:
                 enemy.kill()
 
 
 class Enemy_explosion(pygame.sprite.Sprite):
-    def __init__(self, group, x, y, color, radius, blinks):
+    def __init__(self, group, x, y, color, radius, loops):
         super().__init__(group)
         self.max_radius = radius + 5
         self.radius = 2
         self.color = color
-        self.blinks = blinks
+        self.loops = loops
         self.image = pygame.Surface((self.max_radius * 2, self.max_radius * 2))
         self.image.set_colorkey((0, 0, 0))
         self.rect = pygame.Rect(x - radius, y - radius, self.max_radius * 2,  self.max_radius * 2)
@@ -96,14 +96,46 @@ class Enemy_explosion(pygame.sprite.Sprite):
         self.radius += 1
         if self.radius == self.max_radius:
             self.radius = 2
-            self.blinks -= 1
-            if self.blinks == 0:
+            self.loops -= 1
+            if self.loops == 0:
                 self.kill()
-##        self.mask = pygame.mask.from_surface(self.image)
-####        print(self.mask.)
         if pygame.sprite.collide_circle(self, pl):
             pl.kill()
+
+
+class Laser(pygame.sprite.Sprite):
+    def __init__(self, group, pos1, pos2, color, width):
+        super().__init__(group)
+        self.max_width = width
+        self.width = 1
+        self.color = color
+        self.shrinking = False
+        self.image = pygame.Surface((abs(pos1[0] - pos2[0]), abs(pos1[1] - pos2[1])))
+        self.image.set_colorkey((0, 0, 0))
+##        self.rect = pygame.Rect(min(pos1[0], pos2[0]) - self.max_width, min(pos1[1], pos2[1]) - self.max_width, abs(pos1[0] - pos2[0]) - self.max_width ,  abs(pos1[1] - pos2[1]) - self.max_width)
+        self.rect = pygame.Rect(min(pos1[0], pos2[0]), min(pos1[1], pos2[1]), abs(pos1[0] - pos2[0]),  abs(pos1[1] - pos2[1]))
+        self.pos1 = (pos1[0] - self.rect.x, pos1[1] - self.rect.y)
+        self.pos2 = (pos2[0] - self.rect.x, pos2[1] - self.rect.y)
+##        print(pos1, self.pos1, pos2, self.pos2)
         
+        
+    def update(self):
+        self.image.fill((0, 0, 0))
+        pygame.draw.line(self.image, self.color, self.pos1, self.pos2, self.width)
+        self.mask = pygame.mask.from_surface(self.image)
+##        pygame.draw.circle(self.image, self.color, (self.rect.width // 2, self.rect.height // 2), self.radius, 2)
+        if not self.shrinking:
+            self.width += 1
+        else:
+            self.width -= 1
+        if self.width == self.max_width:
+            self.shrinking = True
+        if self.width == 0:
+            self.kill()
+        if pygame.sprite.collide_mask(self, pl):
+            pl.kill()
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, group, x, y):
         super().__init__(group)
@@ -188,6 +220,84 @@ class Gunner(pygame.sprite.Sprite):
                 self.active = True
             else:
                 self.initial_cooldown -= 1
+
+
+class Blinker(pygame.sprite.Sprite):
+    def __init__(self, group, x, y, initial_cooldown, blink_delay, waiting_time, color):
+        super().__init__(group)
+        self.active = False
+##        self.point = pl.rect.center
+        self.color = color
+        self.invcolor = (255 - color.r, 255 - color.g, 255 - color.b)
+        self.initial_cooldown = initial_cooldown
+        self.blink_delay = blink_delay
+        self.blink_cooldown = blink_delay
+        self.const_cooldown = waiting_time
+        self.cooldown = waiting_time
+        self.tpoint = None
+        self.image = pygame.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, (20, 20), 20, 3)
+##        pygame.draw.circle(self.image, (255, 255, 255), (20, 20), 20, 1)
+        self.arrow = pygame.Surface((50, 16))
+        self.arrow.set_colorkey((0, 0, 0))
+        pygame.draw.polygon(self.arrow, color, ((7, 8), (38, 0), (30, 8), (38, 16)))
+##        pygame.draw.polygon(self.gun, (0, 0, 0), ((7, 8), (35, 0), (30, 8), (35, 16)), 1)
+        self.image.blit(self.arrow, (0, 16))
+        self.image.set_alpha(127)
+        self.rect = pygame.Rect(x, y, 40, 40)
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def generate_target_point(self):
+        ratio = 4 / sqrt((pl.rect.centery - self.rect.y) ** 2 + (pl.rect.centerx - self.rect.x) ** 2)
+        output = [round(self.rect.x + (ratio * (pl.rect.centerx + random.randint(-100, 100) - self.rect.x)) * 50), \
+                 round(self.rect.y + (ratio * (pl.rect.centery + random.randint(-100, 100) - self.rect.y)) * 50)]
+        if output[0] < 0:
+            output[0] = 0
+        elif output[0] + self.rect.width > width:
+             output[0] = width - self.rect.width
+        if output[1] < ceiling.rect.bottom:
+            output[1] = ceiling.rect.bottom
+        elif output[1] + self.rect.height > floor.rect.top:
+            output[1] = floor.rect.top - self.rect.height
+        return output
+    
+    def point_at(self, pos):
+        self.image.fill((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, (20, 20), 20, 4)
+        results = rotatePivoted(self.arrow, 180 - degrees(atan2(pos[1] - self.rect.y, pos[0] - self.rect.x)), (self.rect.width // 2, self.rect.height // 2))
+        self.image.blit(results[0], results[1])
+        
+    def update(self):
+        if self.active:
+            if self.cooldown != 0:
+                self.arrow.fill((0, 0, 0))
+                pygame.draw.polygon(self.arrow, self.color, ((7, 8), (38, 0), (30, 8), (38, 16)))
+                self.point_at(pl.rect.center)
+                self.cooldown -= 1
+            elif self.tpoint is None:
+                self.tpoint = self.generate_target_point()
+                self.arrow.fill((0, 0, 0))
+                pygame.draw.polygon(self.arrow, self.invcolor, ((7, 8), (38, 0), (30, 8), (38, 16)))
+                self.point_at(self.tpoint)
+            elif self.blink_cooldown != 0:
+                self.blink_cooldown -= 1
+            else:
+                if self.tpoint != (self.rect.x, self.rect.y):
+                    Laser(enemy_explosions, self.rect.center, (self.tpoint[0] + self.rect.width // 2, self.tpoint[1] + self.rect.height // 2), self.color, 30)
+                    self.rect.x, self.rect.y = self.tpoint
+                self.tpoint = None
+                self.blink_cooldown = self.blink_delay
+                self.cooldown = self.const_cooldown
+            if pygame.sprite.collide_mask(pl, self):
+                pl.kill()
+        else:
+            self.point_at(pl.rect.center)
+            if self.initial_cooldown == 0:
+                self.image.set_alpha(255)
+                self.active = True
+            else:
+                self.initial_cooldown -= 1
        
 
 class Projectile(pygame.sprite.Sprite):
@@ -211,7 +321,7 @@ class Projectile(pygame.sprite.Sprite):
             self.vely *= 2.5
             pl.cooldown = 30
             pl.xvel -= velocity[0] * 1.7
-            pl.yvel -= velocity[1] * 1.8
+            pl.yvel -= velocity[1] * 2
             if pl.yvel <= 0 and pl.on_ground:
                 pl.on_ground = False
         else:
@@ -226,14 +336,14 @@ class Projectile(pygame.sprite.Sprite):
         if self.friendly:
             Explosion(explosions, self.rect.x, self.rect.y, 30)
         else:
-            Enemy_explosion(explosions, self.rect.x, self.rect.y, self.color, 16, 3)
+            Enemy_explosion(explosions, self.rect.x, self.rect.y, self.color, 12, 3)
         self.kill()
 
     def update(self):
         self.move()
         if self.friendly:
             for enemy in enemies:
-                if pygame.sprite.collide_mask(self, enemy):
+                if pygame.sprite.collide_mask(self, enemy) and enemy.active:
                     self.explode()
                     break
             else:
@@ -367,6 +477,7 @@ try:
                     if pl is not None:
                         players.remove(pl)
                     pl = Player(players, event.pos[0] - 15, event.pos[1] - 15)
+                    Blinker(enemies, width // 2, height // 2, 240, 60, 50, pygame.Color('green'))
             elif event.type == pygame.KEYDOWN:
                 if pl is not None and event.key == pygame.K_a:
                     pl.direction = -3
@@ -478,17 +589,17 @@ try:
             else:
                 platform_cooldown -= 1
 
-            if enemy_cooldown == 0:
-                if rng(80):
-                    if rng(85):
-                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 240, 25, 3, pygame.Color('green'))
-                    else:
-                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 180, 20, 6, pygame.Color('purple'))
-                enemy_cooldown = 240
-            else:
-                enemy_cooldown -= 1
+##            if enemy_cooldown == 0:
+##                if rng(80):
+##                    if rng(85):
+##                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 240, 25, 3, pygame.Color('green'))
+##                    else:
+##                        Gunner(enemies, random.randint(0, width - 40), random.randint(ceiling.rect.bottom, floor.rect.top - 40), 100, 180, 15, 6, pygame.Color('purple'))
+##                enemy_cooldown = 240
+##            else:
+##                enemy_cooldown -= 1
                 
-            if pl.cooldown > 0:
+            if pl.cooldown != 0:
                 pl.cooldown -= 1
             if mouse_pos is not None:
 ##                angle = degrees(atan2(mouse_pos[1], mouse_pos[0]))
