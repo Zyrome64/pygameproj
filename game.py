@@ -255,12 +255,12 @@ def start():
             self.move()
             if self.friendly:
                 for enemy in ranged_enemies:
-                    if pygame.sprite.collide_mask(self, enemy) and enemy.active:
+                    if pygame.sprite.collide_mask(self, enemy) and enemy.active and not enemy.fading:
                         self.explode()
                         break
                 for enemy in melee_enemies:
-                    if pygame.sprite.collide_mask(self, enemy) and enemy.active:
-                        enemy.kill()
+                    if pygame.sprite.collide_mask(self, enemy) and enemy.active and not enemy.fading:
+                        enemy.fading = True
                         self.explode()
                         break
                 else:
@@ -317,17 +317,18 @@ def start():
                 self.kill()
             self.stage += 1
             for enemy in ranged_enemies:
-                if pygame.sprite.collide_circle(self, enemy) and enemy.active:
-                    enemy.kill()
+                if pygame.sprite.collide_circle(self, enemy) and enemy.active and not enemy.fading:
+                    enemy.fading = True
             for enemy in melee_enemies:
-                if pygame.sprite.collide_circle(self, enemy) and enemy.active and enemy.vulnerable:
-                    enemy.kill()
+                if pygame.sprite.collide_circle(self, enemy) and enemy.active and enemy.vulnerable and not enemy.fading:
+                    enemy.fading = True
 
 
     class Gunner(pygame.sprite.Sprite):
         def __init__(self, group, x, y, initial_cooldown, ccd, fire_delay, max_rockets, color):
             super().__init__(group)
             self.active = False
+            self.fading = False
             self.color = color
             self.initial_cooldown = initial_cooldown
             self.const_cooldown = ccd
@@ -349,41 +350,46 @@ def start():
             self.mask = pygame.mask.from_surface(self.image)
 
         def update(self):
-            self.image.fill((0, 0, 0))
-            pygame.draw.circle(self.image, self.color, (20, 20), 14)
-            pygame.draw.circle(self.image, (0, 0, 0), (20, 20), 16, 2)
-    ##                print(get_rotation(mouse_pos, get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])))
-            results = rotatePivoted(self.gun, 180 - degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)), (self.rect.width // 2, self.rect.height // 2))
-    ##                print(-degrees(atan2(mouse_pos[1] - pl.rect.y + 19, mouse_pos[0] - pl.rect.x + 17)))
-            self.image.blit(results[0], results[1])
-            results = None
-            if self.active:
-                if self.cooldown == 0:
-                    self.rockets = self.max_rockets # 3
-                    self.release_cooldown = 0
-                    self.cooldown = self.const_cooldown # 240
-                else:
-                    self.cooldown -= 1
-                if self.rockets:
-                    if self.release_cooldown == 0:
-        ##                print(self.rect.centery, self.rect.y + 20, self.rect.y - 20)
-                        ratio = 4 / sqrt((pl.rect.centery - self.rect.centery) ** 2 + (pl.rect.centerx - self.rect.centerx) ** 2)
-                        Projectile(enemy_projectiles, self.rect.centerx, self.rect.centery,
-                                   -degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)),
-                                   (ratio * (pl.rect.centerx - self.rect.centerx), ratio * (pl.rect.centery - self.rect.centery)),
-                                   self.color)
-                        self.rockets -= 1
-                        self.release_cooldown = self.fire_delay # 25
-                    else:
-                        self.release_cooldown -= 1
-                if pygame.sprite.collide_mask(pl, self):
-                    gameover_screen()
+            if self.fading and self.image.get_alpha():
+                self.image.set_alpha(self.image.get_alpha() - 8)
+                if self.image.get_alpha() == 0:
+                    self.kill()
             else:
-                if self.initial_cooldown == 0:
-                    self.image.set_alpha(255)
-                    self.active = True
+                self.image.fill((0, 0, 0))
+                pygame.draw.circle(self.image, self.color, (20, 20), 14)
+                pygame.draw.circle(self.image, (0, 0, 0), (20, 20), 16, 2)
+        ##                print(get_rotation(mouse_pos, get_angle(pl.rect.x, pl.rect.y, mouse_pos[0], mouse_pos[1])))
+                results = rotatePivoted(self.gun, 180 - degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)), (self.rect.width // 2, self.rect.height // 2))
+        ##                print(-degrees(atan2(mouse_pos[1] - pl.rect.y + 19, mouse_pos[0] - pl.rect.x + 17)))
+                self.image.blit(results[0], results[1])
+                results = None
+                if self.active:
+                    if self.cooldown == 0:
+                        self.rockets = self.max_rockets # 3
+                        self.release_cooldown = 0
+                        self.cooldown = self.const_cooldown # 240
+                    else:
+                        self.cooldown -= 1
+                    if self.rockets:
+                        if self.release_cooldown == 0:
+            ##                print(self.rect.centery, self.rect.y + 20, self.rect.y - 20)
+                            ratio = 4 / sqrt((pl.rect.centery - self.rect.centery) ** 2 + (pl.rect.centerx - self.rect.centerx) ** 2)
+                            Projectile(enemy_projectiles, self.rect.centerx, self.rect.centery,
+                                       -degrees(atan2(pl.rect.centery - self.rect.centery, pl.rect.centerx - self.rect.centerx)),
+                                       (ratio * (pl.rect.centerx - self.rect.centerx), ratio * (pl.rect.centery - self.rect.centery)),
+                                       self.color)
+                            self.rockets -= 1
+                            self.release_cooldown = self.fire_delay # 25
+                        else:
+                            self.release_cooldown -= 1
+                    if pygame.sprite.collide_mask(pl, self):
+                        gameover_screen()
                 else:
-                    self.initial_cooldown -= 1
+                    if self.initial_cooldown == 0:
+                        self.image.set_alpha(255)
+                        self.active = True
+                    else:
+                        self.initial_cooldown -= 1
 
 
     class Blinker(pygame.sprite.Sprite):
@@ -391,6 +397,7 @@ def start():
             super().__init__(group)
             self.active = False
             self.vulnerable = False
+            self.fading = False
     ##        self.point = pl.rect.center
             self.color = color
             self.invcolor = (255 - color.r, 255 - color.g, 255 - color.b)
@@ -434,38 +441,43 @@ def start():
             self.image.blit(results[0], results[1])
             
         def update(self):
-            if self.active:
-                if self.cooldown != 0:
-                    if not self.vulnerable and self.cooldown < self.const_cooldown // 2:
-                        self.vulnerable = True
-                    self.arrow.fill((0, 0, 0))
-                    pygame.draw.polygon(self.arrow, self.color, ((7, 8), (38, 0), (30, 8), (38, 16)))
-                    self.point_at(pl.rect.center)
-                    self.cooldown -= 1
-                elif self.tpoint is None:
-                    self.tpoint = self.generate_target_point()
-                    self.arrow.fill((0, 0, 0))
-                    pygame.draw.polygon(self.arrow, self.invcolor, ((7, 8), (38, 0), (30, 8), (38, 16)))
-                    self.point_at(self.tpoint)
-                elif self.blink_cooldown != 0:
-                    self.blink_cooldown -= 1
-                else:
-                    if self.tpoint != (self.rect.x, self.rect.y):
-                        Laser(enemy_explosions, self.rect.center, (self.tpoint[0] + self.rect.width // 2, self.tpoint[1] + self.rect.height // 2), self.color, 12)
-                        self.rect.x, self.rect.y = self.tpoint
-                    self.tpoint = None
-                    self.blink_cooldown = self.blink_delay
-                    self.cooldown = self.const_cooldown
-                    self.vulnerable = False
-                if pygame.sprite.collide_mask(pl, self):
-                    gameover_screen()
+            if self.fading and self.image.get_alpha():
+                self.image.set_alpha(self.image.get_alpha() - 8)
+                if self.image.get_alpha() == 0:
+                    self.kill()
             else:
-                self.point_at(pl.rect.center)
-                if self.initial_cooldown == 0:
-                    self.image.set_alpha(255)
-                    self.active = True
+                if self.active:
+                    if self.cooldown != 0:
+                        if not self.vulnerable and self.cooldown < self.const_cooldown // 2:
+                            self.vulnerable = True
+                        self.arrow.fill((0, 0, 0))
+                        pygame.draw.polygon(self.arrow, self.color, ((7, 8), (38, 0), (30, 8), (38, 16)))
+                        self.point_at(pl.rect.center)
+                        self.cooldown -= 1
+                    elif self.tpoint is None:
+                        self.tpoint = self.generate_target_point()
+                        self.arrow.fill((0, 0, 0))
+                        pygame.draw.polygon(self.arrow, self.invcolor, ((7, 8), (38, 0), (30, 8), (38, 16)))
+                        self.point_at(self.tpoint)
+                    elif self.blink_cooldown != 0:
+                        self.blink_cooldown -= 1
+                    else:
+                        if self.tpoint != (self.rect.x, self.rect.y):
+                            Laser(enemy_explosions, self.rect.center, (self.tpoint[0] + self.rect.width // 2, self.tpoint[1] + self.rect.height // 2), self.color, 12)
+                            self.rect.x, self.rect.y = self.tpoint
+                        self.tpoint = None
+                        self.blink_cooldown = self.blink_delay
+                        self.cooldown = self.const_cooldown
+                        self.vulnerable = False
+                    if pygame.sprite.collide_mask(pl, self):
+                        gameover_screen()
                 else:
-                    self.initial_cooldown -= 1
+                    self.point_at(pl.rect.center)
+                    if self.initial_cooldown == 0:
+                        self.image.set_alpha(255)
+                        self.active = True
+                    else:
+                        self.initial_cooldown -= 1
 
         
     class Enemy_explosion(pygame.sprite.Sprite):
@@ -568,39 +580,55 @@ def start():
                 if event.type == pygame.MOUSEMOTION:
                     mouse_pos = event.pos
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1 and pl is not None and pl.cooldown == 0:
+                    if event.button == 1 and pl.cooldown == 0:
                         ratio = 4 / sqrt((event.pos[1] - pl.rect.y - 19) ** 2 + (event.pos[0] - pl.rect.x - 17) ** 2)
                         Projectile(projectiles, pl.rect.x + 17, pl.rect.y + 19,
                                    -degrees(atan2(event.pos[1] - pl.rect.y - 19, event.pos[0] - pl.rect.x - 17)),
                                    (ratio * (event.pos[0] - pl.rect.x - 17), ratio * (event.pos[1] - pl.rect.y - 19)),
                                    pygame.Color('red'))
                         game_started = True
-    ##                elif event.button == 1 and ctrl:
-    ##                    print(get_angle(pl.rect.x, pl.rect.y, event.pos[0], event.pos[1]))
-    ##                    print(round(tg, 4), tg in tgtable.keys(), round(tg, 4) in tgtable.keys())
-    ##                if event.button == 3:
-    ##                    if pl is not None:
-    ##                        players.remove(pl)
-    ##                    pl = Player(players, event.pos[0] - 15, event.pos[1] - 15)
                 elif event.type == pygame.KEYDOWN:
-                    if pl is not None and event.key == pygame.K_a:
+                    if event.key == pygame.K_a:
                         pl.direction = -3
-                    elif pl is not None and event.key == pygame.K_d:
+                    elif event.key == pygame.K_d:
                         pl.direction = 3
                     elif event.key == pygame.K_SPACE:
                         space = True
                     elif event.key == pygame.K_p:
                         while True:
                             for e in pygame.event.get():
-                                if e.type == pygame.KEYDOWN and e.key == pygame.K_p:
-                                    break
+                                if e.type == pygame.QUIT:
+                                    pygame.quit()
+                                    raise SystemExit
+                                elif e.type == pygame.MOUSEMOTION:
+                                    mouse_pos = e.pos
+                                elif e.type == pygame.KEYDOWN:
+                                    if e.key == pygame.K_a:
+                                        pl.direction = -3
+                                    elif e.key == pygame.K_d:
+                                        pl.direction = 3
+                                    elif e.key == pygame.K_SPACE:
+                                        space = True
+                                    elif e.key == pygame.K_p:
+                                        break
+                                elif e.type == pygame.KEYUP:
+                                    if pl.direction < 0 and e.key == pygame.K_a:
+                                        pl.direction = 0
+                                    elif pl.direction > 0 and e.key == pygame.K_d:
+                                        pl.direction = 0
+                                    elif e.key == pygame.K_w:
+                                        pl.yvel = 0
+                                    elif e.key == pygame.K_s:
+                                        pl.yvel = 0
+                                    elif e.key == pygame.K_SPACE:
+                                        space = False
                             else:
                                 continue
                             break
                 elif event.type == pygame.KEYUP:
-                    if pl is not None and pl.direction < 0 and event.key == pygame.K_a:
+                    if pl.direction < 0 and event.key == pygame.K_a:
                         pl.direction = 0
-                    elif pl is not None and pl.direction > 0 and event.key == pygame.K_d:
+                    elif pl.direction > 0 and event.key == pygame.K_d:
                         pl.direction = 0
                     elif event.key == pygame.K_w:
                         pl.yvel = 0
