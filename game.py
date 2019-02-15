@@ -60,10 +60,11 @@ def start_screen():
         clock.tick(fps)
 
 
-def gameover_screen():
+def gameover_screen(score):
     screen.fill((0, 0, 0))
     intro_text = ['Нажмите на кнопку "Escape", чтобы выйти из игры',
-                  "R - начать заново"]
+                  "R - начать заново", "",
+                  "Ваш счёт - {}".format(str(score // 120))]
     title = pygame.font.Font(None, 120).render('Игра окончена.', 1, pygame.Color('white'))
     screen.blit(title, ((width - title.get_rect().width) // 2, 200))
     font = pygame.font.Font(None, 30)
@@ -383,7 +384,7 @@ def start():
                         else:
                             self.release_cooldown -= 1
                     if pygame.sprite.collide_mask(pl, self):
-                        gameover_screen()
+                        gameover_screen(score)
                 else:
                     if self.initial_cooldown == 0:
                         self.image.set_alpha(255)
@@ -470,7 +471,7 @@ def start():
                         self.cooldown = self.const_cooldown
                         self.vulnerable = False
                     if pygame.sprite.collide_mask(pl, self):
-                        gameover_screen()
+                        gameover_screen(score)
                 else:
                     self.point_at(pl.rect.center)
                     if self.initial_cooldown == 0:
@@ -502,7 +503,7 @@ def start():
                 if self.loops == 0:
                     self.kill()
             if pygame.sprite.collide_circle(self, pl):
-                gameover_screen()
+                gameover_screen(score)
 
 
     class Laser(pygame.sprite.Sprite):
@@ -535,7 +536,7 @@ def start():
             if self.width == 0:
                 self.kill()
             if pygame.sprite.collide_mask(self, pl):
-                gameover_screen()
+                gameover_screen(score)
                 
     running = True
     
@@ -640,7 +641,7 @@ def start():
             if game_started:
                 score += 1
                 if score // 120 == 120:
-                    speed += 1
+                    speed = 2
                 if btscd == 0:
                     if rng(50):
                         if lastbts is not None and lastbts.rect.x + lastbts.length < width + 10:
