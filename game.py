@@ -790,9 +790,11 @@ def start():
             
             if pl.rect.x < -8:
                 pl.rect.x = -8
+                pl.xvel = 0
 
             elif pl.rect.x + 27 > width:
                 pl.rect.x = width - 27
+                pl.xvel = 0
 
             if not pl.on_ground:
                 if pl.yvel + 0.3 <= 8:
