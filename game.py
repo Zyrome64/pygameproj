@@ -4,7 +4,7 @@ import sys
 from math import sqrt, atan2, degrees
 
 pygame.init()
-size = width, height = 900, 700
+size = width, height = 1000, 600
 fps = 120
 screen = pygame.display.set_mode(size)
 
@@ -15,15 +15,15 @@ def start_screen():
                   "Нажмите на любую клавишу, чтобы продолжить."]
     screen.fill((0, 0, 0))
 
-    title = pygame.font.Font(None, 120).render('Cave Explorer', 1, (255, 0, 0))
-    screen.blit(title, ((width - title.get_rect().width) // 2, 200))
+    title = pygame.font.Font(None, int(120 / 700 * height)).render('Cave Explorer', 1, (255, 0, 0))
+    screen.blit(title, ((width - title.get_rect().width) // 2, int(200 / 700 * height)))
   
-    font = pygame.font.Font(None, 30)
-    text_coord = 200 + title.get_rect().bottom
+    font = pygame.font.Font(None, int(30 / 700 * height))
+    text_coord = int(200 / 700 * height) + title.get_rect().bottom
     for line in intro_text:
         string_rendered = font.render(line, 1, pygame.Color('white'))
         intro_rect = string_rendered.get_rect()
-        text_coord += 10
+        text_coord += int(10 / 600 * width)
         intro_rect.top = text_coord
         intro_rect.x = (width - string_rendered.get_rect().width) // 2
         text_coord += intro_rect.height
@@ -53,8 +53,8 @@ def start_screen():
             color[0] += 1
             if color == [255, 0, 0]:
                 cycle = 0
-        title = pygame.font.Font(None, 120).render('Cave Explorer', 1, color)
-        screen.blit(title, ((width - title.get_rect().width) // 2, 200))
+        title = pygame.font.Font(None, int(120 / 700 * height)).render('Cave Explorer', 1, color)
+        screen.blit(title, ((width - title.get_rect().width) // 2, int(200 / 700 * height)))
             
         pygame.display.flip()
         clock.tick(fps)
@@ -542,12 +542,14 @@ def start():
     
 
 
-    Ground(background, (900, 150), (50, 50, 50), 0, 550)
-    Ground(background, (900, 150), (50, 50, 50), 0, 0)
+    Ground(background, (width, int(150 / 700 * height)), (50, 50, 50), 0, height - int(150 / 700 *
+                                                                                       height))
+    Ground(background, (width, int(150 / 700 * height)), (50, 50, 50), 0, 0)
 
 
-    floor = Ground(ground, (900, 110), (80, 80, 80), 0, 590)
-    ceiling = Ground(ground, (900, 110), (80, 80, 80), 0, 0)
+    floor = Ground(ground, (width, int(110 / 700 * height)), (80, 80, 80), 0, height - int(110 /
+                                                                                           700 * height))
+    ceiling = Ground(ground, (width, int(110 / 700 * height)), (80, 80, 80), 0, 0)
 
     mouse_pos = (width, floor.rect.top - 18)
     space = False
@@ -650,7 +652,7 @@ def start():
                                       else random.randint(35, 80)
                             lastbts = Stalactite(decorations,
                                                  width + 16,
-                                                 150,
+                                                 int(150 / 700 * height),
                                                  stwidth,
                                                  (50, 50, 50),
                                                  0.5,
@@ -658,7 +660,7 @@ def start():
                         elif lastbts is None:
                             lastbts = Stalactite(decorations,
                                                  width,
-                                                 150,
+                                                 int(150 / 700 * height),
                                                  random.randint(15, 45),
                                                  (50, 50, 50),
                                                  0.5,
@@ -675,7 +677,7 @@ def start():
                                       else random.randint(35, 80)
                             lastbbs = Stalactite(decorations,
                                                  width + 16,
-                                                 550,
+                                                 height - int(150 / 700 * height),
                                                  stwidth,
                                                  (50, 50, 50),
                                                  0.5,
@@ -683,7 +685,7 @@ def start():
                         elif lastbbs is None:
                             lastbbs = Stalactite(decorations,
                                                  width,
-                                                 550,
+                                                 height - int(150 / 700 * height),
                                                  random.randint(15, 45),
                                                  (50, 50, 50),
                                                  0.5,
