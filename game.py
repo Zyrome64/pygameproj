@@ -10,20 +10,23 @@ screen = pygame.display.set_mode(size)
 
 
 def start_screen():
-    intro_text = ["WASD - движение",
+    intro_text = ["AD - движение влево/вправо",
+                  "Пробел - прыжок",
                   "ЛКМ - выстрел",
+                  "P - пауза",
+                  "F1 - полноэкранный режим",
                   "Нажмите на любую клавишу, чтобы продолжить."]
     screen.fill((0, 0, 0))
 
-    title = pygame.font.Font(None, 120).render('Cave Explorer', 1, (255, 0, 0))
-    screen.blit(title, ((width - title.get_rect().width) // 2, 200))
+    title = pygame.font.Font(None, int(120 / 700 * height)).render('Cave Explorer', 1, (255, 0, 0))
+    screen.blit(title, ((width - title.get_rect().width) // 2, int(200 / 700 * height)))
   
-    font = pygame.font.Font(None, 30)
-    text_coord = 200 + title.get_rect().bottom
+    font = pygame.font.Font(None, int(30 / 700 * height))
+    text_coord = int(200 / 700 * height) + title.get_rect().bottom
     for line in intro_text:
         string_rendered = font.render(line, 1, pygame.Color('white'))
         intro_rect = string_rendered.get_rect()
-        text_coord += 10
+        text_coord += int(10 / 600 * width)
         intro_rect.top = text_coord
         intro_rect.x = (width - string_rendered.get_rect().width) // 2
         text_coord += intro_rect.height
@@ -53,8 +56,8 @@ def start_screen():
             color[0] += 1
             if color == [255, 0, 0]:
                 cycle = 0
-        title = pygame.font.Font(None, 120).render('Cave Explorer', 1, color)
-        screen.blit(title, ((width - title.get_rect().width) // 2, 200))
+        title = pygame.font.Font(None, int(120 / 700 * height)).render('Cave Explorer', 1, color)
+        screen.blit(title, ((width - title.get_rect().width) // 2, int(200 / 700 * height)))
             
         pygame.display.flip()
         clock.tick(fps)
@@ -268,8 +271,10 @@ def start():
                     if pygame.sprite.spritecollideany(self, ground) or pygame.sprite.spritecollideany(self, platforms):
                         self.explode()
             else:
-                if pygame.sprite.spritecollideany(self, ground) or pygame.sprite.spritecollideany(self, platforms) or pygame.sprite.collide_mask(self, pl):
+                if pygame.sprite.spritecollideany(self, ground) or pygame.sprite.spritecollideany(self, platforms):
                     self.explode()
+                if pygame.sprite.collide_mask(self, pl):
+                    gameover_screen(score)
                 
             if self.rect.x < -10:
                 self.kill()
@@ -542,17 +547,21 @@ def start():
     
 
 
-    Ground(background, (900, 150), (50, 50, 50), 0, 550)
-    Ground(background, (900, 150), (50, 50, 50), 0, 0)
+    Ground(background, (width, int(150 / 700 * height)), (50, 50, 50), 0, height - int(150 / 700 *
+                                                                                       height))
+    Ground(background, (width, int(150 / 700 * height)), (50, 50, 50), 0, 0)
 
 
-    floor = Ground(ground, (900, 110), (80, 80, 80), 0, 590)
-    ceiling = Ground(ground, (900, 110), (80, 80, 80), 0, 0)
+    floor = Ground(ground, (width, int(110 / 700 * height)), (80, 80, 80), 0, height - int(110 /
+                                                                                           700 * height))
+    ceiling = Ground(ground, (width, int(110 / 700 * height)), (80, 80, 80), 0, 0)
 
     mouse_pos = (width, floor.rect.top - 18)
     space = False
     speed = 1
     game_started = False
+    fullscreen = False
+    pause = False
 
     pl = Player(players, (width + 34) // 2, floor.rect.top - 36)
 
@@ -571,6 +580,7 @@ def start():
     score = 0
     
     ##Stalactite(decorations, width, 200, 40, 50, (50, 50, 50), 1, False)
+    global screen
     try:
         while running:
             screen.fill((0, 0, 0))
@@ -595,37 +605,17 @@ def start():
                         pl.direction = 3
                     elif event.key == pygame.K_SPACE:
                         space = True
+                    elif event.key == pygame.K_F1:
+                        if fullscreen:
+                            pause = True
+                            screen = pygame.display.set_mode(size)
+                            fullscreen = False
+                        else:
+                            pause = True
+                            screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+                            fullscreen = True
                     elif event.key == pygame.K_p:
-                        while True:
-                            for e in pygame.event.get():
-                                if e.type == pygame.QUIT:
-                                    pygame.quit()
-                                    raise SystemExit
-                                elif e.type == pygame.MOUSEMOTION:
-                                    mouse_pos = e.pos
-                                elif e.type == pygame.KEYDOWN:
-                                    if e.key == pygame.K_a:
-                                        pl.direction = -3
-                                    elif e.key == pygame.K_d:
-                                        pl.direction = 3
-                                    elif e.key == pygame.K_SPACE:
-                                        space = True
-                                    elif e.key == pygame.K_p:
-                                        break
-                                elif e.type == pygame.KEYUP:
-                                    if pl.direction < 0 and e.key == pygame.K_a:
-                                        pl.direction = 0
-                                    elif pl.direction > 0 and e.key == pygame.K_d:
-                                        pl.direction = 0
-                                    elif e.key == pygame.K_w:
-                                        pl.yvel = 0
-                                    elif e.key == pygame.K_s:
-                                        pl.yvel = 0
-                                    elif e.key == pygame.K_SPACE:
-                                        space = False
-                            else:
-                                continue
-                            break
+                        pause = True
                 elif event.type == pygame.KEYUP:
                     if pl.direction < 0 and event.key == pygame.K_a:
                         pl.direction = 0
@@ -637,8 +627,74 @@ def start():
                         pl.yvel = 0
                     elif event.key == pygame.K_SPACE:
                         space = False
-                        
+
+            if pause:
+##                text_controller = [True, 80]
+                pause_text = pygame.font.Font(None, 100).render('Пауза', 1, (0, 0, 0), (255, 255, 255))
+                while True:
+                    for e in pygame.event.get():
+                        if e.type == pygame.QUIT:
+                            pygame.quit()
+                            raise SystemExit
+                        elif e.type == pygame.MOUSEMOTION:
+                            mouse_pos = e.pos
+                        elif e.type == pygame.KEYDOWN:
+                            if e.key == pygame.K_a:
+                                pl.direction = -3
+                            elif e.key == pygame.K_d:
+                                pl.direction = 3
+                            elif e.key == pygame.K_SPACE:
+                                space = True
+                            elif e.key == pygame.K_F1:
+                                if fullscreen:
+                                    screen = pygame.display.set_mode(size)
+                                    fullscreen = False
+                                else:
+                                    screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+                                    fullscreen = True
+                            elif e.key == pygame.K_p:
+                                break
+                        elif e.type == pygame.KEYUP:
+                            if pl.direction < 0 and e.key == pygame.K_a:
+                                pl.direction = 0
+                            elif pl.direction > 0 and e.key == pygame.K_d:
+                                pl.direction = 0
+                            elif e.key == pygame.K_w:
+                                pl.yvel = 0
+                            elif e.key == pygame.K_s:
+                                pl.yvel = 0
+                            elif e.key == pygame.K_SPACE:
+                                space = False
+                    else:
+                        screen.fill((0, 0, 0))
+                        background.draw(screen)
+                        decorations.draw(screen)
+                        ground.draw(screen)
+                        platforms.draw(screen)   
+                        explosions.draw(screen)
+                        enemy_explosions.draw(screen)
+                        enemy_projectiles.draw(screen)
+                        projectiles.draw(screen)
+                        ranged_enemies.draw(screen)
+                        melee_enemies.draw(screen)
+                        players.draw(screen)
+                        foreground.draw(screen)
+                        screen.blit(score_label, ((width - score_label.get_rect().width) // 2, 30))
+##                        if text_controller[1] == 0:
+##                            text_controller[0] = not text_controller[0]
+##                            text_controller[1] = 80
+##                        else:
+##                            text_controller[1] -= 1
+##                        if text_controller[0]:
+                        screen.blit(pause_text, ((width - pause_text.get_rect().width) // 2, (height - pause_text.get_rect().height) // 2))
+                        pygame.display.flip()
+                        clock.tick(fps)
+                        continue
+                    pause = False
+                    break
+
             if game_started:
+                
                 score += 1
                 if score // 120 == 120:
                     speed = 2
@@ -650,7 +706,7 @@ def start():
                                       else random.randint(35, 80)
                             lastbts = Stalactite(decorations,
                                                  width + 16,
-                                                 150,
+                                                 int(150 / 700 * height),
                                                  stwidth,
                                                  (50, 50, 50),
                                                  0.5,
@@ -658,7 +714,7 @@ def start():
                         elif lastbts is None:
                             lastbts = Stalactite(decorations,
                                                  width,
-                                                 150,
+                                                 int(150 / 700 * height),
                                                  random.randint(15, 45),
                                                  (50, 50, 50),
                                                  0.5,
@@ -675,7 +731,7 @@ def start():
                                       else random.randint(35, 80)
                             lastbbs = Stalactite(decorations,
                                                  width + 16,
-                                                 550,
+                                                 height - int(150 / 700 * height),
                                                  stwidth,
                                                  (50, 50, 50),
                                                  0.5,
@@ -683,7 +739,7 @@ def start():
                         elif lastbbs is None:
                             lastbbs = Stalactite(decorations,
                                                  width,
-                                                 550,
+                                                 height - int(150 / 700 * height),
                                                  random.randint(15, 45),
                                                  (50, 50, 50),
                                                  0.5,
