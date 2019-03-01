@@ -4,7 +4,7 @@ import sys
 from math import sqrt, atan2, degrees
 
 pygame.init()
-size = width, height = 900, 700
+size = width, height = 1000, 600
 fps = 120
 screen = pygame.display.set_mode(size)
 
